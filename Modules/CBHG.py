@@ -28,7 +28,7 @@ class CBHG(object):
     def proj_unit(self):
         return self.__proj_unit
 
-    def __call__(self, inputs, time_major=None):
+    def __call__(self, inputs, is_training=True, time_major=None):
         assert time_major is not None, "[*] You must specify whether is time_major or not!"
         if time_major:
             inputs = tf.transpose(inputs, perm=(1,0,2))
@@ -41,23 +41,14 @@ class CBHG(object):
 
         ### calculate
         # conv net
-        output_0 = ConvBankWithPool(inputs)
-        output_1 = ConvProj(output_0)
+        output_0 = ConvBankWithPool(inputs, is_training)
+        output_1 = ConvProj(output_0, is_training)
+        # residual connect
         res_output = tf.identity(inputs) + output_1
 
         # highway net
-        trans_out = tf.transpose(res_output, perm=(1,0,2))
-        max_time_steps = tf.shape(trans_out)[0]
-        batch_size = tf.shape(trans_out)[1]
-        time = tf.constant(0, dtype=tf.int32)
-        cond = lambda time, *_: tf.less(time, max_time_steps)
-        output_ta = tf.TensorArray(size=max_time_steps, dtype=tf.float32)
-        def body(time, output_ta):
-            output = Highway(trans_out[time])
-            output_ta = output_ta.write(time, output)
-            return tf.add(time, 1), output_ta
-        _, final_output_ta = tf.while_loop(cond, body, [time, output_ta])
-        highway_output = tf.reshape(final_output_ta.stack(), shape=(max_time_steps, batch_size, self.proj_unit[1]))
+        highway_output = Highway(res_output)
+        highway_output = tf.transpose(highway_output, perm=(1,0,2))
 
         # biGRU
         final_output, *_ = biDynamicRNNScan(rnn_cell_fw, rnn_cell_bw, highway_output)

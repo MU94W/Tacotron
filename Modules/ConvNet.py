@@ -26,7 +26,7 @@ class Conv1dBankWithMaxPool(object):
     def activation(self):
         return self.__activation
 
-    def __call__(self, inputs, scope=None):
+    def __call__(self, inputs, phase=True, scope=None):
         """
         Args:
             inputs: with shape -> (batch_size, time_step/width, units/channels)
@@ -37,7 +37,8 @@ class Conv1dBankWithMaxPool(object):
             for idk in xrange(self.K):
                 with tf.variable_scope('inner_conv_%d' % idk):
                     conv_k = self.activation(__conv1d_alone_time__(inputs, idk+1, in_channels, in_channels))
-                conv_lst.append(conv_k)
+                    norm_k = tf.contrib.layers.batch_norm(conv_k, center=True, scale=True, is_training=phase)
+                conv_lst.append(norm_k)
 
             stacked_conv = tf.stack(conv_lst, axis=1)   # shape -> (batch_size, K/height, time_step/width, units/channels)
 
@@ -69,7 +70,7 @@ class Conv1dProjection(object):
     def activation(self):
         return self.__activation
 
-    def __call__(self, inputs, scope=None):
+    def __call__(self, inputs, phase=True, scope=None):
         """
         Args:
             inputs: with shape -> (batch_size, time_step/width, units/channels)
@@ -81,8 +82,10 @@ class Conv1dProjection(object):
             in_channels = inputs.get_shape()[-1].value
             with tf.variable_scope('inner_conv_with_acti'):
                 conv_a = self.activation(__conv1d_alone_time__(inputs, filter_width, in_channels, proj_0))
+                norm_a = tf.contrib.layers.batch_norm(conv_a, center=True, scale=True, is_training=phase)
             with tf.variable_scope('inner_conv_linear'):
-                conv_l = __conv1d_alone_time__(conv_a, filter_width, proj_0, proj_1)
+                conv_l = __conv1d_alone_time__(norm_a, filter_width, proj_0, proj_1)
+                norm_l = tf.contrib.layers.batch_norm(conv_l, center=True, scale=True, is_training=phase)
 
-            return conv_l
+            return norm_l
 
