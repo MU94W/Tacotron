@@ -100,8 +100,7 @@ class Tacotron(Model):
             final_output = tf.reshape(final_output_ta.stack(), shape=(max_time_steps, batch_size, output_dim))
             final_alpha  = tf.reshape(final_alpha_ta.stack(),  shape=(reduced_time_steps, batch_size, input_time_steps))
 
-        loss = tf.losses.mean_squared_error(outputs, final_output)
-        self.loss = loss
+        self.loss = tf.losses.mean_squared_error(outputs, final_output)
         self.alpha = final_alpha
 
     def summary(self):
@@ -113,25 +112,12 @@ class Tacotron(Model):
         ob_alpha_img = tf.reshape(ob_alpha, shape=(2, out_steps, inp_steps, 1))
         tf.summary.image('alpha', ob_alpha_img)
         
-        merged = tf.summary.merge_all()
-        self.merged = merged
+        self.merged = tf.summary.merge_all()
 
-class mTacotron(Model):
+
+class mTacotron(Tacotron):
     """modified Tacotron
     """
-    def __init__(self, r=5, is_training=True):
-        super(Tacotron, self).__init__()
-        self.__r = r
-        self.__is_training = is_training
-
-    @property
-    def r(self):
-        return self.__r
-
-    @property
-    def is_training(self):
-        return self.__is_training
-
     def build(self, inputs, outputs, time_major=None):
         assert time_major is not None, "[*] You must specify whether is time_major or not!"
         if time_major:
@@ -210,20 +196,6 @@ class mTacotron(Model):
             final_output = tf.reshape(final_output_ta.stack(), shape=(max_time_steps, batch_size, output_dim))
             final_alpha  = tf.reshape(final_alpha_ta.stack(),  shape=(reduced_time_steps, batch_size, input_time_steps))
 
-        loss = tf.losses.mean_squared_error(outputs, final_output)
-        self.loss = loss
+        self.loss = tf.losses.mean_squared_error(outputs, final_output)
         self.alpha = final_alpha
-
-    def summary(self):
-        tf.summary.scalar('loss', self.loss)
-        ### prepare alpha img
-        ob_alpha = self.alpha[:,:2]
-        out_steps = tf.shape(ob_alpha)[0]
-        inp_steps = tf.shape(ob_alpha)[-1]
-        ob_alpha_img = tf.reshape(ob_alpha, shape=(2, out_steps, inp_steps, 1))
-        tf.summary.image('alpha', ob_alpha_img)
-        
-        merged = tf.summary.merge_all()
-        self.merged = merged
-
 
