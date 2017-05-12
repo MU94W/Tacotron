@@ -1,5 +1,6 @@
 import tensorflow as tf
 from six.moves import xrange
+from TFAttention.Initializer import gaussian_initializer
 
 
 def __conv1d__(inputs, width, stride, in_channels, out_channels):
@@ -35,7 +36,7 @@ class Conv1dBankWithMaxPool(object):
             conv_lst = []
             for idk in xrange(self.K):
                 with tf.variable_scope('inner_conv_%d' % idk):
-                    conv_k = self.activation(__conv1d_alone_time__(inputs, idk, in_channels, in_channels))
+                    conv_k = self.activation(__conv1d_alone_time__(inputs, idk+1, in_channels, in_channels))
                 conv_lst.append(conv_k)
 
             stacked_conv = tf.stack(conv_lst, axis=1)   # shape -> (batch_size, K/height, time_step/width, units/channels)
