@@ -4,6 +4,7 @@ from Tacotron.Modules.CBHG import CBHG
 from TFAttention.Attention import BahdanauAttentionModule as AttModule
 from TFAttention.RNNCell import GRUCell, ResidualWrapper
 from TFAttention.RNNDecoderCell import GRUDecoderCell
+from TFAttention.metrics import binary_accuracy
 
 class Tacotron(Model):
     """Tacotron
@@ -44,7 +45,7 @@ class Tacotron(Model):
         with tf.variable_scope('decoder'):
             with tf.variable_scope('attention'):
                 att_module = AttModule(256, cbhg_out, time_major)
-            att_rnn = GRUCell(256)
+            att_rnn = GRUDecoderCell(256)
             dec_rnn_0 = GRUDecoderCell(256)
             dec_rnn_1 = ResidualWrapper(GRUCell(256))
             ### prepare loop
@@ -52,7 +53,7 @@ class Tacotron(Model):
                 if not time_major:
                     outputs = tf.transpose(outputs, perm=(1,0,2))
                 max_time_steps = tf.shape(outputs)[0]
-                reduced_time_steps = tf.div(max_time_steps, self.r)
+                reduced_time_steps = tf.div(max_time_steps - 1, self.r) + 1
                 batch_size = tf.shape(outputs)[1]
                 output_dim = outputs.get_shape()[-1].value
                 pad_indic = tf.zeros(shape=(self.r, batch_size, output_dim), dtype=tf.float32)
@@ -62,7 +63,7 @@ class Tacotron(Model):
                 dec_rnn_1_state = dec_rnn_1.init_state(batch_size, tf.float32)
                 state_tup = tuple([att_rnn_state, dec_rnn_0_state, dec_rnn_1_state])
                 ### prepare tensor array
-                output_ta = tf.TensorArray(size=max_time_steps, dtype=tf.float32)
+                output_ta = tf.TensorArray(size=reduced_time_steps * self.r, dtype=tf.float32)
                 alpha_ta  = tf.TensorArray(size=reduced_time_steps, dtype=tf.float32)
 
                 time = tf.constant(0, dtype=tf.int32)
@@ -75,19 +76,22 @@ class Tacotron(Model):
                     with tf.variable_scope('pre-net'):
                         pre_0 = tf.layers.dropout(tf.layers.dense(this_indic, 256, tf.nn.relu))
                         pre_1 = tf.layers.dropout(tf.layers.dense(pre_0, 128, tf.nn.relu))
-                    with tf.variable_scope('att-rnn'):
-                        query, att_rnn_state = att_rnn(pre_1, state_tup[0])
                     with tf.variable_scope('attention'):
+                        query = state_tup[0][0]
                         context, alpha = att_module(query)
                         alpha_ta = alpha_ta.write(time, alpha)
+                    with tf.variable_scope('att-rnn'):
+                        output_att, att_rnn_state = att_rnn(pre_1, state_tup[0], context)
                     with tf.variable_scope('decoder-rnn'):
                         with tf.variable_scope('cell-0'):
-                            output_0, dec_rnn_0_state = dec_rnn_0(query, state_tup[1], context)
+                            output_0, dec_rnn_0_state = dec_rnn_0(output_att, state_tup[1], context)
                             res_output_0 = tf.identity(query) + output_0
                         with tf.variable_scope('cell-1'):
                             res_output_1, dec_rnn_1_state = dec_rnn_1(res_output_0, state_tup[2])
                     with tf.variable_scope('expand-dense'):
-                        dense_out = tf.layers.dense(res_output_1, output_dim)
+                        dense_out_mgc_lf0 = tf.layers.dense(res_output_1, output_dim-1)
+                        dense_out_vuv = tf.layers.dense(res_output_1, 1, tf.sigmoid)
+                        dense_out = tf.concat([dense_out_mgc_lf0, dense_out_vuv], axis=-1)
                         for idr in range(self.r):
                             output_ta = output_ta.write(begin_step + idr, dense_out)
 
@@ -97,24 +101,30 @@ class Tacotron(Model):
                 ### run loop
                 _, final_output_ta, final_alpha_ta, *_ = tf.while_loop(cond, body, [time, output_ta, alpha_ta, state_tup])
 
-            final_output = tf.reshape(final_output_ta.stack(), shape=(max_time_steps, batch_size, output_dim))
+            final_output = tf.reshape(final_output_ta.stack(), shape=(reduced_time_steps * self.r, batch_size, output_dim))
+            final_output = final_output[:max_time_steps]
             final_alpha  = tf.reshape(final_alpha_ta.stack(),  shape=(reduced_time_steps, batch_size, input_time_steps))
 
-        self.loss = tf.losses.mean_squared_error(outputs, final_output)
+        self.loss_mgc_lf0 = tf.losses.mean_squared_error(outputs[:, :, :-1], final_output[:, :, :-1])
+        self.loss_vuv = tf.losses.sigmoid_cross_entropy(outputs[:, :, -1], final_output[:, :, -1])
+        self.loss = 0.9*self.loss_mgc_lf0 + 0.1*self.loss_vuv
+        self.metric_vuv = binary_accuracy(outputs[:, :, -1], final_output[:, :, -1])
         self.alpha = final_alpha
 
-    def summary(self):
-        tf.summary.scalar('loss', self.loss)
+    def summary(self, suffix):
+        sum_0 = tf.summary.scalar('%s/loss_mgc_lf0' % suffix, self.loss_mgc_lf0)
+        sum_1 = tf.summary.scalar('%s/loss_vuv' % suffix, self.loss_vuv)
+        sum_2 = tf.summary.scalar('%s/loss' % suffix, self.loss)
+        sum_3 = tf.summary.scalar('%s/metric_vuv_acc' % suffix, self.metric_vuv)
         ### prepare alpha img
         ob_alpha = self.alpha[:,:2]
         ob_alpha = tf.transpose(ob_alpha, perm=(1,0,2))     # batch major
         out_steps = tf.shape(ob_alpha)[1]
         inp_steps = tf.shape(ob_alpha)[2]
         ob_alpha_img = tf.reshape(ob_alpha, shape=(2, out_steps, inp_steps, 1))
-        tf.summary.image('alpha', ob_alpha_img)
+        sum_4 = tf.summary.image('%s/alpha' % suffix, ob_alpha_img)
         
-        self.merged = tf.summary.merge_all()
-        return self.merged
+        return tf.summary.merge([sum_0, sum_1, sum_2, sum_3, sum_4])
 
 
 class mTacotron(Tacotron):
