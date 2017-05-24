@@ -1,6 +1,6 @@
 import tensorflow as tf
 from six.moves import xrange
-from TFAttention.Initializer import gaussian_initializer
+from TFCommon.Initializer import gaussian_initializer
 
 class FCHighwayNet(object):
     """Implements Highway Networks.

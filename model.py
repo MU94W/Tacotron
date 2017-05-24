@@ -1,9 +1,9 @@
 import tensorflow as tf
 from TFCommon.Model import Model
 from Tacotron.Modules.CBHG import CBHG
-from TFAttention.Attention import BahdanauAttentionModule as AttModule
-from TFAttention.RNNCell import GRUCell, ResidualWrapper
-from TFAttention.RNNDecoderCell import GRUDecoderCell
+from TFCommon.Attention import BahdanauAttentionModule as AttModule
+from TFCommon.RNNCell import GRUCell, ResidualWrapper
+from TFCommon.RNNDecoderCell import GRUDecoderCell
 
 class Tacotron(Model):
     """Tacotron

@@ -1,6 +1,6 @@
 import tensorflow as tf
-from TFAttention.RNNCell import GRUCell
-from TFAttention.DynamicRNNScan import biDynamicRNNScan
+from TFCommon.RNNCell import GRUCell
+from TFCommon.DynamicRNNScan import biDynamicRNNScan
 from Tacotron.Modules import ConvNet, HighwayNet
 
 Conv1dBankWithMaxPool   = ConvNet.Conv1dBankWithMaxPool
