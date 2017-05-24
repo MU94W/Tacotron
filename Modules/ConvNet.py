@@ -40,12 +40,14 @@ class Conv1dBankWithMaxPool(object):
                     norm_k = tf.contrib.layers.batch_norm(conv_k, center=True, scale=True, is_training=phase)
                 conv_lst.append(norm_k)
 
-            stacked_conv = tf.stack(conv_lst, axis=1)   # shape -> (batch_size, K/height, time_step/width, units/channels)
+            stacked_conv = tf.stack(conv_lst, axis=-1)   # shape -> (batch_size, time_step/width, units/channels, K/height)
+            re_shape = [tf.shape(stacked_conv)[0], tf.shape(stacked_conv)[1], 1, in_channels * self.K]
+            stacked_conv = tf.reshape(stacked_conv, shape=re_shape)     # shape -> (batch_size, time_step/width, 1, units*K/channels)
 
             ### max pool along time
-            ksize = [1, self.K, 2, 1]
-            strid = [1, self.K, 1, 1]
-            pooled_conv = tf.squeeze(tf.nn.max_pool(stacked_conv, ksize, strid, 'SAME'), axis=1)
+            ksize = [1, 2, 1, 1]
+            strid = [1, 1, 1, 1]
+            pooled_conv = tf.squeeze(tf.nn.max_pool(stacked_conv, ksize, strid, 'SAME'), axis=2)    # shape -> (batch_size, time_step/width, units*K/channels)
 
             return pooled_conv
 
