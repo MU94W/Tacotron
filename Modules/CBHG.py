@@ -43,7 +43,7 @@ class CBHG(object):
 
         ### for correctness.
         if sequence_length is not None:
-            mask = array_ops.sequence_mask(sequence_length, tf.shape(inputs)[1], tf.float32)
+            mask = tf.expand_dims(array_ops.sequence_mask(sequence_length, tf.shape(inputs)[1], tf.float32), -1)
             inputs = inputs * mask
 
         ConvBankWithPool    = Conv1dBankWithMaxPool(self.bank_K)
