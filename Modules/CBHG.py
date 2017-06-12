@@ -1,8 +1,9 @@
 import tensorflow as tf
 from tensorflow.python.ops import array_ops
 from TFCommon.RNNCell import GRUCell
-from TFCommon.DynamicRNNScan import biDynamicRNNScan
 from Tacotron.Modules import ConvNet, HighwayNet
+
+bidirectional_dynamic_rnn = tf.nn.bidirectional_dynamic_rnn
 
 Conv1dBankWithMaxPool   = ConvNet.Conv1dBankWithMaxPool
 Conv1dProjection        = ConvNet.Conv1dProjection
@@ -12,7 +13,7 @@ class CBHG(object):
     """CBHG Net
     """
     
-    def __init__(self, bank_K, proj_unit):
+    def __init__(self, bank_K, proj_unit, highway_layers=4):
         """
         Args:
             bank_K: int
@@ -20,6 +21,7 @@ class CBHG(object):
         """
         self.__bank_K = bank_K
         self.__proj_unit = proj_unit
+        self.__highway_layers = highway_layers
 
     @property
     def bank_K(self):
@@ -29,10 +31,18 @@ class CBHG(object):
     def proj_unit(self):
         return self.__proj_unit
 
+<<<<<<< HEAD
     def __call__(self, inputs, sequence_length=None, is_training=True, time_major=None):
+=======
+    @property
+    def highway_layers(self):
+        return self.__highway_layers
+
+    def __call__(self, inputs, is_training=True, time_major=None):
+>>>>>>> db26efbfa1b4bc1b234db0471de8ccc7ca9384aa
         assert time_major is not None, "[*] You must specify whether is time_major or not!"
         if time_major:
-            inputs = tf.transpose(inputs, perm=(1,0,2))
+            inputs = tf.transpose(inputs, perm=(1,0,2))     # Use batch major data.
         assert inputs.get_shape()[-1] == self.proj_unit[1], "[!] input's shape is not the same as ConvProj's output!"
 
         ### for correctness.
@@ -42,7 +52,7 @@ class CBHG(object):
 
         ConvBankWithPool    = Conv1dBankWithMaxPool(self.bank_K)
         ConvProj            = Conv1dProjection(self.proj_unit)
-        Highway             = FCHighwayNet(4)
+        Highway             = FCHighwayNet(self.highway_layers)
         rnn_cell_fw         = GRUCell(self.proj_unit[1])
         rnn_cell_bw         = GRUCell(self.proj_unit[1])
 
@@ -60,11 +70,12 @@ class CBHG(object):
 
         # highway net
         highway_output = Highway(res_output)
-        highway_output = tf.transpose(highway_output, perm=(1,0,2))
 
         # biGRU
-        final_output, *_ = biDynamicRNNScan(rnn_cell_fw, rnn_cell_bw, highway_output)
-        if not time_major:
+        # batch major
+        final_output, *_ = bidirectional_dynamic_rnn(rnn_cell_fw, rnn_cell_bw, highway_output, time_major=False, dtype=tf.float32)
+        final_output = tf.concat(final_output, axis=-1)
+        if time_major:
             final_output = tf.transpose(final_output, perm=(1,0,2))
 
         return final_output
