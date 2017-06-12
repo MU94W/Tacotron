@@ -73,7 +73,7 @@ class CBHG(object):
 
         # biGRU
         # batch major
-        final_output, *_ = bidirectional_dynamic_rnn(rnn_cell_fw, rnn_cell_bw, highway_output, time_major=False, dtype=tf.float32)
+        final_output, *_ = bidirectional_dynamic_rnn(rnn_cell_fw, rnn_cell_bw, highway_output, sequence_length=sequence_length, time_major=False, dtype=tf.float32)
         final_output = tf.concat(final_output, axis=-1)
         if time_major:
             final_output = tf.transpose(final_output, perm=(1,0,2))
