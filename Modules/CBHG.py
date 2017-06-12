@@ -31,12 +31,11 @@ class CBHG(object):
     def proj_unit(self):
         return self.__proj_unit
 
-    def __call__(self, inputs, sequence_length=None, is_training=True, time_major=None):
     @property
     def highway_layers(self):
         return self.__highway_layers
 
-    def __call__(self, inputs, is_training=True, time_major=None):
+    def __call__(self, inputs, sequence_length=None, is_training=True, time_major=None):
         assert time_major is not None, "[*] You must specify whether is time_major or not!"
         if time_major:
             inputs = tf.transpose(inputs, perm=(1,0,2))     # Use batch major data.
