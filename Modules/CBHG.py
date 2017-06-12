@@ -1,4 +1,5 @@
 import tensorflow as tf
+from tensorflow.python.ops import array_ops
 from TFCommon.RNNCell import GRUCell
 from TFCommon.DynamicRNNScan import biDynamicRNNScan
 from Tacotron.Modules import ConvNet, HighwayNet
@@ -28,11 +29,17 @@ class CBHG(object):
     def proj_unit(self):
         return self.__proj_unit
 
-    def __call__(self, inputs, is_training=True, time_major=None):
+    def __call__(self, inputs, sequence_length=None, is_training=True, time_major=None):
         assert time_major is not None, "[*] You must specify whether is time_major or not!"
         if time_major:
             inputs = tf.transpose(inputs, perm=(1,0,2))
         assert inputs.get_shape()[-1] == self.proj_unit[1], "[!] input's shape is not the same as ConvProj's output!"
+
+        ### for correctness.
+        if sequence_length is not None:
+            mask = array_ops.sequence_mask(sequence_length, tf.shape(inputs)[1], tf.float32)
+            inputs = inputs * mask
+
         ConvBankWithPool    = Conv1dBankWithMaxPool(self.bank_K)
         ConvProj            = Conv1dProjection(self.proj_unit)
         Highway             = FCHighwayNet(4)
@@ -42,6 +49,11 @@ class CBHG(object):
         ### calculate
         # conv net
         output_0 = ConvBankWithPool(inputs, is_training)
+
+        ### for correctness.
+        if sequence_length is not None:
+            output_0 = output_0 * mask
+
         output_1 = ConvProj(output_0, is_training)
         # residual connect
         res_output = tf.identity(inputs) + output_1
