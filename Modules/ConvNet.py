@@ -37,7 +37,7 @@ class Conv1dBankWithMaxPool(object):
             for idk in xrange(1, self.K + 1):
                 with tf.variable_scope('inner_conv_%d' % idk):
                     conv_k = self.activation(__conv1d_alone_time__(inputs, idk, in_channels, in_channels))
-                    norm_k = tf.contrib.layers.batch_norm(conv_k, is_training=is_training)
+                    norm_k = tf.contrib.layers.batch_norm(conv_k, is_training=is_training, update_collections=None)
                 conv_lst.append(norm_k)
 
             stacked_conv = tf.stack(conv_lst, axis=-1)   # shape -> (batch_size, time_step/width, units/channels, K/height)
@@ -85,10 +85,10 @@ class Conv1dProjection(object):
             in_channels = inputs.get_shape()[-1].value
             with tf.variable_scope('inner_conv_with_acti'):
                 conv_a = self.activation(__conv1d_alone_time__(inputs, filter_width, in_channels, proj_0))
-                norm_a = tf.contrib.layers.batch_norm(conv_a, is_training=is_training)
+                norm_a = tf.contrib.layers.batch_norm(conv_a, is_training=is_training, update_collections=None)
             with tf.variable_scope('inner_conv_linear'):
                 conv_l = __conv1d_alone_time__(norm_a, filter_width, proj_0, proj_1)
-                norm_l = tf.contrib.layers.batch_norm(conv_l, is_training=is_training)
+                norm_l = tf.contrib.layers.batch_norm(conv_l, is_training=is_training, update_collections=None)
 
             return norm_l
 
