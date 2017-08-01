@@ -72,8 +72,8 @@ class CBHG(object):
         # biGRU
         # time major
         bGRUinp = tf.transpose(highway_output, perm=(1, 0, 2))
-        fw_out, _ = fw_cell(bGRUinp, sequence_length=sequence_length, scope="fw")
-        bw_out, _ = bw_cell(bGRUinp, sequence_length=sequence_length, scope="bw")
+        fw_out, _ = fw_cell(bGRUinp, sequence_length=sequence_length, scope="fw", dtype=tf.float32)
+        bw_out, _ = bw_cell(bGRUinp, sequence_length=sequence_length, scope="bw", dtype=tf.float32)
         final_output = tf.concat([fw_out, bw_out], axis=-1)
 
         if not time_major:
