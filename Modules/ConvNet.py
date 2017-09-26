@@ -3,8 +3,7 @@ from six.moves import xrange
 
 
 def __conv1d__(inputs, width, stride, in_channels, out_channels):
-    filter_1d = tf.get_variable(name='filter', shape=(width, in_channels, out_channels))
-    return tf.nn.conv1d(inputs, filter_1d, stride, 'SAME')
+    return tf.layers.conv1d(inputs, out_channels, width, stride, 'SAME')
 
 def __conv1d_alone_time__(inputs, width, in_channels, out_channels):
     return __conv1d__(inputs, width, 1, in_channels, out_channels)
@@ -41,7 +40,6 @@ class Conv1dBankWithMaxPool(object):
                 conv_lst.append(norm_k)
 
             stacked_conv = tf.stack(conv_lst, axis=-1)   # shape -> (batch_size, time_step/width, units/channels, K/height)
-            #re_shape = tf.shape(stacked_conv)[:2] + [1, in_channels * self.K]
             re_shape = [tf.shape(stacked_conv)[0], tf.shape(stacked_conv)[1], 1, in_channels * self.K]
             stacked_conv = tf.reshape(stacked_conv, shape=re_shape)     # shape -> (batch_size, time_step/width, 1, units*K/channels)
 
